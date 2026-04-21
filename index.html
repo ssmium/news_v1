@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>뉴스앱</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+
+<!-- iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="뉴스앱">
+
+<!-- 아이콘 -->
+<link rel="apple-touch-icon" href="https://res.cloudinary.com/dpvcmcpc2/image/upload/v1776733067/ChatGPT_Image_2026%EB%85%84_4%EC%9B%94_21%EC%9D%BC_%EC%98%A4%EC%A0%84_09_57_35_r2cxiz.png">
+
+<style>
+body {
+  font-family:-apple-system;
+  background:#f7f8fa;
+  margin:0;
+}
+
+.header {
+  padding:16px;
+  background:white;
+  border-bottom:1px solid #eee;
+  font-weight:700;
+}
+
+.content {
+  padding:16px;
+}
+
+.card {
+  background:white;
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:12px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.05);
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">뉴스 브리핑</div>
+<div class="content" id="list">
+  불러오는 중...
+</div>
+
+<script>
+async function load(){
+  const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' +
+    encodeURIComponent('https://news.google.com/rss/search?q=한국&hl=ko&gl=KR&ceid=KR:ko'));
+
+  const data = await res.json();
+
+  const container = document.getElementById('list');
+
+  container.innerHTML = data.items.map(item => `
+    <div class="card">
+      ${item.title}
+    </div>
+  `).join('');
+}
+
+load();
+</script>
+
+</body>
+</html>
