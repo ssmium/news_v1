@@ -6,24 +6,21 @@
 
 <title>뉴스앱</title>
 
-<!-- PWA -->
 <link rel="manifest" href="manifest.json">
 
-<!-- iOS -->
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="뉴스앱">
 
-<!-- 아이콘 -->
 <link rel="apple-touch-icon" href="https://res.cloudinary.com/dpvcmcpc2/image/upload/v1776733067/ChatGPT_Image_2026%EB%85%84_4%EC%9B%94_21%EC%9D%BC_%EC%98%A4%EC%A0%84_09_57_35_r2cxiz.png">
 
 <style>
 body {
   font-family:-apple-system;
-  background:#f7f8fa;
   margin:0;
+  background:#f7f8fa;
 }
 
+/* 상단 */
 .header {
   padding:16px;
   background:white;
@@ -31,16 +28,74 @@ body {
   font-weight:700;
 }
 
-.content {
+/* 페이지 */
+.page {
+  display:none;
   padding:16px;
 }
 
+.page.active {
+  display:block;
+}
+
+/* 카드 */
 .card {
+  display:block;
   background:white;
   border-radius:16px;
   padding:16px;
   margin-bottom:12px;
   box-shadow:0 4px 12px rgba(0,0,0,0.05);
+  text-decoration:none;
+  color:#000;
+  position:relative;
+}
+
+.card-title { font-weight:600; }
+
+.meta { font-size:0.75rem; color:#888; margin-top:6px; }
+
+.bg {
+  position:absolute;
+  inset:0;
+  border-radius:16px;
+  opacity:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:22px;
+  font-weight:700;
+}
+
+.bg.read { background:#22c55e; color:white; }
+.bg.save { background:#facc15; }
+
+.remove-right { transform:translateX(120%); opacity:0; }
+.remove-left { transform:translateX(-120%); opacity:0; }
+
+/* 하단 탭 */
+.tabbar {
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  height:60px;
+  background:white;
+  display:flex;
+  border-top:1px solid #eee;
+}
+
+.tab {
+  flex:1;
+  text-align:center;
+  padding-top:8px;
+  font-size:12px;
+  color:#888;
+}
+
+.tab.active {
+  color:#3182f6;
+  font-weight:600;
 }
 </style>
 </head>
@@ -48,27 +103,149 @@ body {
 <body>
 
 <div class="header">뉴스 브리핑</div>
-<div class="content" id="list">
-  불러오는 중...
+
+<!-- 뉴스 -->
+<div id="newsPage" class="page active"></div>
+
+<!-- 저장 -->
+<div id="savedPage" class="page"></div>
+
+<!-- 탭 -->
+<div class="tabbar">
+  <div class="tab active" onclick="switchTab('news')">📰 뉴스</div>
+  <div class="tab" onclick="switchTab('saved')">⭐ 저장</div>
 </div>
 
 <script>
-async function load(){
-  const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' +
-    encodeURIComponent('https://news.google.com/rss/search?q=한국&hl=ko&gl=KR&ceid=KR:ko'));
+
+let savedList = JSON.parse(localStorage.getItem('savedList') || '[]');
+
+function saveState(){
+  localStorage.setItem('savedList', JSON.stringify(savedList));
+}
+
+/* 탭 전환 */
+function switchTab(tab){
+  document.getElementById('newsPage').classList.toggle('active', tab==='news');
+  document.getElementById('savedPage').classList.toggle('active', tab==='saved');
+
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+
+  if(tab==='news'){
+    document.querySelectorAll('.tab')[0].classList.add('active');
+  } else {
+    document.querySelectorAll('.tab')[1].classList.add('active');
+    renderSaved();
+  }
+}
+
+/* 뉴스 로딩 */
+async function loadNews(){
+  const res = await fetch(
+    'https://api.rss2json.com/v1/api.json?rss_url=' +
+    encodeURIComponent('https://news.google.com/rss/search?q=한국&hl=ko&gl=KR&ceid=KR:ko')
+  );
 
   const data = await res.json();
 
-  const container = document.getElementById('list');
+  const container = document.getElementById('newsPage');
 
   container.innerHTML = data.items.map(item => `
-    <div class="card">
-      ${item.title}
-    </div>
+    <a class="card" href="${item.link}" target="_blank">
+      <div class="bg read">✔</div>
+      <div class="bg save">⭐</div>
+
+      <div class="card-title">${item.title}</div>
+      <div class="meta">${new Date(item.pubDate).toLocaleString()}</div>
+    </a>
+  `).join('');
+
+  attachSwipe();
+}
+
+/* 저장 렌더 */
+function renderSaved(){
+  const container = document.getElementById('savedPage');
+
+  if(savedList.length === 0){
+    container.innerHTML = "저장된 뉴스 없음";
+    return;
+  }
+
+  container.innerHTML = savedList.map(item => `
+    <a class="card" href="${item.link}" target="_blank">
+      <div class="card-title">${item.title}</div>
+    </a>
   `).join('');
 }
 
-load();
+/* 스와이프 */
+function attachSwipe(){
+  document.querySelectorAll('#newsPage .card').forEach(card => {
+
+    let startX = 0;
+    let moveX = 0;
+    let isSwipe = false;
+
+    const bgRead = card.querySelector('.read');
+    const bgSave = card.querySelector('.save');
+
+    card.addEventListener('touchstart', e=>{
+      startX = e.touches[0].clientX;
+      isSwipe = false;
+    });
+
+    card.addEventListener('touchmove', e=>{
+      moveX = e.touches[0].clientX - startX;
+
+      if(Math.abs(moveX) > 10){
+        isSwipe = true;
+        e.preventDefault(); // 👉 링크 이동 막기
+      }
+
+      card.style.transform = `translateX(${moveX}px)`;
+
+      const op = Math.min(Math.abs(moveX)/100,1);
+
+      if(moveX > 0){
+        bgRead.style.opacity = op;
+        bgSave.style.opacity = 0;
+      } else {
+        bgSave.style.opacity = op;
+        bgRead.style.opacity = 0;
+      }
+    });
+
+    card.addEventListener('touchend', e=>{
+      const link = card.href;
+      const title = card.querySelector('.card-title').innerText;
+
+      if(isSwipe && moveX < -80){
+        savedList.push({link,title});
+        saveState();
+        removeCard(card,'left');
+      }
+      else if(isSwipe && moveX > 80){
+        removeCard(card,'right');
+      }
+      else{
+        // 👉 클릭은 기본 a태그 동작
+      }
+
+      card.style.transform = '';
+      moveX = 0;
+    });
+  });
+}
+
+function removeCard(card, dir){
+  card.classList.add(dir==='right'?'remove-right':'remove-left');
+  setTimeout(()=> card.remove(),200);
+}
+
+/* 초기 실행 */
+loadNews();
+
 </script>
 
 </body>
