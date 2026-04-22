@@ -8,7 +8,12 @@
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2563eb" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="뉴스 포털" />
+
+  <!-- 홈화면 아이콘 (SVG 인라인) -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%232563eb'/><stop offset='1' stop-color='%231e40af'/></linearGradient></defs><rect width='180' height='180' fill='url(%23g)'/><g transform='translate(38,46)'><rect x='0' y='0' width='104' height='88' rx='8' fill='white'/><rect x='12' y='12' width='48' height='10' rx='2' fill='%232563eb'/><rect x='12' y='28' width='80' height='4' rx='1' fill='%2393c5fd'/><rect x='12' y='36' width='80' height='4' rx='1' fill='%2393c5fd'/><rect x='12' y='44' width='58' height='4' rx='1' fill='%2393c5fd'/><rect x='12' y='58' width='36' height='22' rx='3' fill='%232563eb'/><rect x='54' y='60' width='38' height='3' rx='1' fill='%2393c5fd'/><rect x='54' y='68' width='38' height='3' rx='1' fill='%2393c5fd'/><rect x='54' y='76' width='26' height='3' rx='1' fill='%2393c5fd'/></g></svg>" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%232563eb'/><stop offset='1' stop-color='%231e40af'/></linearGradient></defs><rect width='180' height='180' rx='36' fill='url(%23g)'/><g transform='translate(38,46)'><rect x='0' y='0' width='104' height='88' rx='8' fill='white'/><rect x='12' y='12' width='48' height='10' rx='2' fill='%232563eb'/><rect x='12' y='28' width='80' height='4' rx='1' fill='%2393c5fd'/><rect x='12' y='36' width='80' height='4' rx='1' fill='%2393c5fd'/><rect x='12' y='44' width='58' height='4' rx='1' fill='%2393c5fd'/><rect x='12' y='58' width='36' height='22' rx='3' fill='%232563eb'/><rect x='54' y='60' width='38' height='3' rx='1' fill='%2393c5fd'/><rect x='54' y='68' width='38' height='3' rx='1' fill='%2393c5fd'/><rect x='54' y='76' width='26' height='3' rx='1' fill='%2393c5fd'/></g></svg>" />
 
   <style>
     :root{
@@ -404,6 +409,9 @@
     let currentKeyword = 'TOP';
     let allNews = [];
     let readLinks = JSON.parse(localStorage.getItem('portal_read_links') || '[]');
+    let requestId = 0;  // 요청 ID - 최신 요청만 반영
+    const cache = new Map();  // 카테고리별 메모리 캐시
+    const CACHE_TTL = 3 * 60 * 1000;  // 3분
 
     function startApp(){
       document.getElementById('landing').classList.add('hide');
@@ -447,29 +455,23 @@
       (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
     ];
 
+    // 3개 프록시를 동시에 쏴서 가장 빠른 응답을 사용
     async function fetchRssText(rssUrl){
-      let lastError = null;
-      for (const proxyFn of PROXIES) {
-        try {
-          const proxyUrl = proxyFn(rssUrl);
-          console.log('[뉴스포털] 시도:', proxyUrl);
-          const res = await fetch(proxyUrl);
-          if (!res.ok) {
-            console.warn('[뉴스포털] HTTP 오류:', res.status);
-            continue;
-          }
-          const text = await res.text();
-          if (text && text.includes('<item')) {
-            console.log('[뉴스포털] 성공! 길이:', text.length);
-            return text;
-          }
-          console.warn('[뉴스포털] 빈 응답 또는 item 없음');
-        } catch(e) {
-          console.warn('[뉴스포털] 프록시 실패:', e.message);
-          lastError = e;
-        }
+      const attempts = PROXIES.map(async (proxyFn) => {
+        const proxyUrl = proxyFn(rssUrl);
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const text = await res.text();
+        if (!text || !text.includes('<item')) throw new Error('빈 응답');
+        console.log('[뉴스포털] 최초 성공 프록시:', proxyUrl.slice(0, 50) + '…');
+        return text;
+      });
+
+      try {
+        return await Promise.any(attempts);
+      } catch(err) {
+        throw new Error('모든 프록시 실패');
       }
-      throw lastError || new Error('모든 프록시 실패');
     }
 
     function parseRss(xmlText){
@@ -577,6 +579,19 @@
       const heroArea = document.getElementById('heroArea');
       const newsList = document.getElementById('newsList');
 
+      // 이 요청만의 고유 ID 생성
+      const myRequestId = ++requestId;
+      const myKeyword = currentKeyword;
+
+      // 캐시 확인 - 있으면 즉시 표시
+      const cached = cache.get(myKeyword);
+      if (cached && (Date.now() - cached.time < CACHE_TTL)) {
+        console.log('[뉴스포털] 캐시 사용:', myKeyword);
+        allNews = cached.data;
+        renderNews();
+        return;
+      }
+
       heroArea.innerHTML = `
         <div class="hero-card">
           <div class="hero-body">
@@ -589,16 +604,27 @@
       newsList.innerHTML = '';
 
       try{
-        const rssUrl = buildRssUrl(currentKeyword);
-        console.log('[뉴스포털] RSS URL:', rssUrl);
+        const rssUrl = buildRssUrl(myKeyword);
+        console.log('[뉴스포털] RSS URL:', rssUrl, '(id:', myRequestId, ')');
 
         const xmlText = await fetchRssText(rssUrl);
+
+        // 내가 요청한 사이에 더 최신 요청이 있었으면 버림
+        if (myRequestId !== requestId) {
+          console.log('[뉴스포털] 오래된 응답 버림 (id:', myRequestId, '→ 최신:', requestId, ')');
+          return;
+        }
+
         const items = parseRss(xmlText);
         console.log('[뉴스포털] 파싱된 기사 수:', items.length);
 
-        allNews = items.filter(item => item.link && isKoreanTitle(item.title));
+        const filtered = items.filter(item => item.link && isKoreanTitle(item.title));
+        console.log('[뉴스포털] 한국어 필터 후:', filtered.length);
 
-        console.log('[뉴스포털] 한국어 필터 후:', allNews.length);
+        // 캐시에 저장
+        cache.set(myKeyword, { data: filtered, time: Date.now() });
+
+        allNews = filtered;
 
         if (allNews.length === 0) {
           heroArea.innerHTML = '';
@@ -608,6 +634,9 @@
 
         renderNews();
       }catch(e){
+        // 오래된 요청의 에러는 무시
+        if (myRequestId !== requestId) return;
+
         console.error('[뉴스포털] 오류:', e);
         heroArea.innerHTML = '';
         newsList.innerHTML = `
@@ -620,7 +649,21 @@
       }
     }
 
+    // 랜딩 화면 있는 동안 TOP 뉴스를 미리 로딩 (백그라운드)
+    async function preloadTop(){
+      try {
+        const xmlText = await fetchRssText(buildRssUrl('TOP'));
+        const items = parseRss(xmlText);
+        const filtered = items.filter(item => item.link && isKoreanTitle(item.title));
+        cache.set('TOP', { data: filtered, time: Date.now() });
+        console.log('[뉴스포털] TOP 사전 로딩 완료:', filtered.length);
+      } catch(e) {
+        // 실패해도 조용히 넘김 (실제 클릭 시 다시 시도됨)
+      }
+    }
+
     setTodayText();
+    preloadTop();  // 랜딩 화면 있는 동안 미리 로딩
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
