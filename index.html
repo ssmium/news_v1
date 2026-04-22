@@ -1,252 +1,630 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>뉴스 포털</title>
 
-<title>뉴스앱</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="뉴스 포털" />
 
-<link rel="manifest" href="manifest.json">
+  <style>
+    :root{
+      --bg:#f5f6f7;
+      --white:#ffffff;
+      --text:#111111;
+      --sub:#6b7280;
+      --line:#e5e7eb;
+      --blue:#2563eb;
+      --blue-soft:#eef4ff;
+      --shadow:0 2px 12px rgba(0,0,0,.06);
+      --radius:18px;
+      --radius-sm:12px;
+    }
 
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="뉴스앱">
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+      -webkit-tap-highlight-color:transparent;
+    }
 
-<link rel="apple-touch-icon" href="https://res.cloudinary.com/dpvcmcpc2/image/upload/v1776733067/ChatGPT_Image_2026%EB%85%84_4%EC%9B%94_21%EC%9D%BC_%EC%98%A4%EC%A0%84_09_57_35_r2cxiz.png">
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Segoe UI",sans-serif;
+      background:#e5e7eb;
+      color:var(--text);
+      min-height:100vh;
+    }
 
-<style>
-body {
-  font-family:-apple-system;
-  margin:0;
-  background:#f7f8fa;
-}
+    /* 모바일 앱 느낌으로 데스크톱에서 중앙 정렬 */
+    @media (min-width: 520px){
+      .app.show{
+        max-width:480px;
+        margin:0 auto;
+        min-height:100vh;
+        background:var(--bg);
+        box-shadow:0 0 40px rgba(0,0,0,.08);
+      }
+      .topbar{
+        max-width:480px;
+        margin:0 auto;
+      }
+    }
 
-/* 상단 */
-.header {
-  padding:16px;
-  background:white;
-  border-bottom:1px solid #eee;
-  font-weight:700;
-}
+    a{
+      color:inherit;
+      text-decoration:none;
+    }
 
-/* 페이지 */
-.page {
-  display:none;
-  padding:16px;
-}
+    /* 랜딩 */
+    .landing{
+      position:fixed;
+      inset:0;
+      background:linear-gradient(135deg, #2563eb 0%, #1e40af 50%, #0f172a 100%);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:space-between;
+      padding:60px 20px 50px;
+      z-index:9999;
+      transition:opacity .45s ease, visibility .45s ease;
+    }
 
-.page.active {
-  display:block;
-}
+    .landing.hide{
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+    }
 
-/* 카드 */
-.card {
-  display:block;
-  background:white;
-  border-radius:16px;
-  padding:16px;
-  margin-bottom:12px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.05);
-  text-decoration:none;
-  color:#000;
-  position:relative;
-}
+    .landing-hero{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      color:#fff;
+      gap:24px;
+    }
 
-.card-title { font-weight:600; }
+    .landing-icon{
+      width:110px;
+      height:110px;
+      border-radius:30px;
+      background:rgba(255,255,255,.15);
+      backdrop-filter:blur(20px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:54px;
+      box-shadow:0 20px 60px rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.2);
+    }
 
-.meta { font-size:0.75rem; color:#888; margin-top:6px; }
+    .landing-title{
+      font-size:34px;
+      font-weight:900;
+      letter-spacing:-0.04em;
+      line-height:1.2;
+    }
 
-.bg {
-  position:absolute;
-  inset:0;
-  border-radius:16px;
-  opacity:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:22px;
-  font-weight:700;
-}
+    .landing-sub{
+      font-size:15px;
+      opacity:.8;
+      line-height:1.6;
+      max-width:280px;
+      font-weight:500;
+    }
 
-.bg.read { background:#22c55e; color:white; }
-.bg.save { background:#facc15; }
+    .start-btn{
+      width:100%;
+      max-width:340px;
+      border:none;
+      background:#fff;
+      color:#1e40af;
+      border-radius:16px;
+      padding:18px 20px;
+      font-size:16px;
+      font-weight:800;
+      cursor:pointer;
+      box-shadow:0 10px 30px rgba(0,0,0,.2);
+    }
 
-.remove-right { transform:translateX(120%); opacity:0; }
-.remove-left { transform:translateX(-120%); opacity:0; }
+    /* 앱 */
+    .app{
+      display:none;
+      min-height:100vh;
+      padding-bottom:30px;
+    }
 
-/* 하단 탭 */
-.tabbar {
-  position:fixed;
-  bottom:0;
-  left:0;
-  right:0;
-  height:60px;
-  background:white;
-  display:flex;
-  border-top:1px solid #eee;
-}
+    .app.show{
+      display:block;
+    }
 
-.tab {
-  flex:1;
-  text-align:center;
-  padding-top:8px;
-  font-size:12px;
-  color:#888;
-}
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:20;
+      background:rgba(255,255,255,.96);
+      backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--line);
+      padding:16px 18px 12px;
+    }
 
-.tab.active {
-  color:#3182f6;
-  font-weight:600;
-}
-</style>
+    .topbar-row{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:14px;
+    }
+
+    .brand{
+      font-size:24px;
+      font-weight:900;
+      letter-spacing:-0.03em;
+    }
+
+    .subdate{
+      margin-top:6px;
+      font-size:12px;
+      color:var(--sub);
+      font-weight:600;
+    }
+
+    .refresh-btn{
+      border:none;
+      background:var(--blue-soft);
+      color:var(--blue);
+      border-radius:999px;
+      padding:10px 12px;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+
+    .chips{
+      display:flex;
+      gap:8px;
+      overflow-x:auto;
+      padding-bottom:2px;
+      scrollbar-width:none;
+    }
+
+    .chips::-webkit-scrollbar{
+      display:none;
+    }
+
+    .chip{
+      flex:0 0 auto;
+      border:none;
+      border-radius:999px;
+      padding:10px 14px;
+      background:#f3f4f6;
+      color:#4b5563;
+      font-size:13px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .chip.active{
+      background:#111827;
+      color:#fff;
+    }
+
+    .container{
+      padding:18px;
+    }
+
+    .section-title{
+      font-size:15px;
+      font-weight:900;
+      margin-bottom:12px;
+      letter-spacing:-0.02em;
+    }
+
+    .hero-card{
+      background:var(--white);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      margin-bottom:18px;
+      display:block;
+      border-left:4px solid var(--blue);
+    }
+
+    .hero-body{
+      padding:18px;
+    }
+
+    .hero-badge{
+      display:inline-block;
+      margin-bottom:10px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#eff6ff;
+      color:#2563eb;
+      font-size:11px;
+      font-weight:900;
+    }
+
+    .hero-title{
+      font-size:21px;
+      line-height:1.42;
+      font-weight:900;
+      letter-spacing:-0.03em;
+      margin-bottom:10px;
+    }
+
+    .hero-meta{
+      font-size:12px;
+      color:var(--sub);
+      font-weight:600;
+    }
+
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .news-card{
+      background:var(--white);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:15px 16px;
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      cursor:pointer;
+    }
+
+    .news-rank{
+      width:24px;
+      flex:0 0 24px;
+      text-align:center;
+      font-size:15px;
+      line-height:1.5;
+      font-weight:900;
+      color:#9ca3af;
+      padding-top:1px;
+    }
+
+    .news-main{
+      min-width:0;
+      flex:1;
+    }
+
+    .news-title{
+      font-size:15px;
+      line-height:1.5;
+      font-weight:800;
+      letter-spacing:-0.02em;
+      word-break:keep-all;
+    }
+
+    .news-meta{
+      margin-top:6px;
+      font-size:12px;
+      color:var(--sub);
+      font-weight:600;
+    }
+
+    .read-mark{
+      color:#2563eb;
+      font-weight:900;
+      margin-right:6px;
+    }
+
+    .empty{
+      background:var(--white);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:34px 20px;
+      text-align:center;
+      font-size:14px;
+      color:var(--sub);
+      line-height:1.6;
+    }
+
+    .footer-tools{
+      margin-top:16px;
+      display:flex;
+      gap:10px;
+    }
+
+    .tool-btn{
+      flex:1;
+      border:none;
+      background:#fff;
+      border-radius:14px;
+      box-shadow:var(--shadow);
+      padding:13px 14px;
+      font-size:13px;
+      font-weight:800;
+      cursor:pointer;
+      color:#374151;
+    }
+  </style>
 </head>
-
 <body>
 
-<div class="header">뉴스 브리핑</div>
+  <div class="landing" id="landing">
+    <div class="landing-hero">
+      <div class="landing-icon">📰</div>
+      <div>
+        <div class="landing-title">뉴스 포털</div>
+        <div class="landing-sub" style="margin-top:12px;">
+          오늘의 주요 뉴스를<br>한눈에 확인해보세요
+        </div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startApp()">시작하기</button>
+  </div>
 
-<!-- 뉴스 -->
-<div id="newsPage" class="page active"></div>
+  <div class="app" id="app">
+    <div class="topbar">
+      <div class="topbar-row">
+        <div>
+          <div class="brand">뉴스 포털</div>
+          <div class="subdate" id="todayText"></div>
+        </div>
+        <button class="refresh-btn" onclick="loadNews()">새로고침</button>
+      </div>
 
-<!-- 저장 -->
-<div id="savedPage" class="page"></div>
+      <div class="chips" id="chips">
+        <button class="chip active" data-keyword="TOP" onclick="selectCategory(this)">종합</button>
+        <button class="chip" data-keyword="SEARCH:정치" onclick="selectCategory(this)">정치</button>
+        <button class="chip" data-keyword="BUSINESS" onclick="selectCategory(this)">경제</button>
+        <button class="chip" data-keyword="SEARCH:사회" onclick="selectCategory(this)">사회</button>
+        <button class="chip" data-keyword="ENTERTAINMENT" onclick="selectCategory(this)">연예</button>
+        <button class="chip" data-keyword="SPORTS" onclick="selectCategory(this)">스포츠</button>
+        <button class="chip" data-keyword="TECHNOLOGY" onclick="selectCategory(this)">IT</button>
+      </div>
+    </div>
 
-<!-- 탭 -->
-<div class="tabbar">
-  <div class="tab active" onclick="switchTab('news')">📰 뉴스</div>
-  <div class="tab" onclick="switchTab('saved')">⭐ 저장</div>
-</div>
+    <div class="container">
+      <div class="section-title">헤드라인</div>
+      <div id="heroArea"></div>
 
-<script>
+      <div class="section-title">주요 뉴스</div>
+      <div class="list" id="newsList"></div>
 
-let savedList = JSON.parse(localStorage.getItem('savedList') || '[]');
+      <div class="footer-tools">
+        <button class="tool-btn" onclick="clearRead()">읽은 기사 초기화</button>
+        <button class="tool-btn" onclick="loadNews()">기사 다시 불러오기</button>
+      </div>
+    </div>
+  </div>
 
-function saveState(){
-  localStorage.setItem('savedList', JSON.stringify(savedList));
-}
+  <script>
+    let currentKeyword = 'TOP';
+    let allNews = [];
+    let readLinks = JSON.parse(localStorage.getItem('portal_read_links') || '[]');
 
-/* 탭 전환 */
-function switchTab(tab){
-  document.getElementById('newsPage').classList.toggle('active', tab==='news');
-  document.getElementById('savedPage').classList.toggle('active', tab==='saved');
+    function startApp(){
+      document.getElementById('landing').classList.add('hide');
+      document.getElementById('app').classList.add('show');
+      loadNews();
+    }
 
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    function setTodayText(){
+      const now = new Date();
+      document.getElementById('todayText').textContent =
+        now.toLocaleDateString('ko-KR', {
+          year:'numeric',
+          month:'long',
+          day:'numeric',
+          weekday:'short'
+        });
+    }
 
-  if(tab==='news'){
-    document.querySelectorAll('.tab')[0].classList.add('active');
-  } else {
-    document.querySelectorAll('.tab')[1].classList.add('active');
-    renderSaved();
-  }
-}
+    function selectCategory(btn){
+      document.querySelectorAll('.chip').forEach(chip => chip.classList.remove('active'));
+      btn.classList.add('active');
+      currentKeyword = btn.dataset.keyword || 'TOP';
+      loadNews();
+    }
 
-/* 뉴스 로딩 */
-async function loadNews(){
-  const res = await fetch(
-    'https://api.rss2json.com/v1/api.json?rss_url=' +
-    encodeURIComponent('https://news.google.com/rss/search?q=한국&hl=ko&gl=KR&ceid=KR:ko')
-  );
-
-  const data = await res.json();
-
-  const container = document.getElementById('newsPage');
-
-  container.innerHTML = data.items.map(item => `
-    <a class="card" href="${item.link}" target="_blank">
-      <div class="bg read">✔</div>
-      <div class="bg save">⭐</div>
-
-      <div class="card-title">${item.title}</div>
-      <div class="meta">${new Date(item.pubDate).toLocaleString()}</div>
-    </a>
-  `).join('');
-
-  attachSwipe();
-}
-
-/* 저장 렌더 */
-function renderSaved(){
-  const container = document.getElementById('savedPage');
-
-  if(savedList.length === 0){
-    container.innerHTML = "저장된 뉴스 없음";
-    return;
-  }
-
-  container.innerHTML = savedList.map(item => `
-    <a class="card" href="${item.link}" target="_blank">
-      <div class="card-title">${item.title}</div>
-    </a>
-  `).join('');
-}
-
-/* 스와이프 */
-function attachSwipe(){
-  document.querySelectorAll('#newsPage .card').forEach(card => {
-
-    let startX = 0;
-    let moveX = 0;
-    let isSwipe = false;
-
-    const bgRead = card.querySelector('.read');
-    const bgSave = card.querySelector('.save');
-
-    card.addEventListener('touchstart', e=>{
-      startX = e.touches[0].clientX;
-      isSwipe = false;
-    });
-
-    card.addEventListener('touchmove', e=>{
-      moveX = e.touches[0].clientX - startX;
-
-      if(Math.abs(moveX) > 10){
-        isSwipe = true;
-        e.preventDefault(); // 👉 링크 이동 막기
-      }
-
-      card.style.transform = `translateX(${moveX}px)`;
-
-      const op = Math.min(Math.abs(moveX)/100,1);
-
-      if(moveX > 0){
-        bgRead.style.opacity = op;
-        bgSave.style.opacity = 0;
+    function buildRssUrl(categoryCode){
+      if (categoryCode === 'TOP') {
+        return `https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko`;
+      } else if (categoryCode.startsWith('SEARCH:')) {
+        const q = categoryCode.replace('SEARCH:', '');
+        return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
       } else {
-        bgSave.style.opacity = op;
-        bgRead.style.opacity = 0;
+        return `https://news.google.com/rss/headlines/section/topic/${categoryCode}?hl=ko&gl=KR&ceid=KR:ko`;
       }
-    });
+    }
 
-    card.addEventListener('touchend', e=>{
-      const link = card.href;
-      const title = card.querySelector('.card-title').innerText;
+    // 여러 프록시를 순차 시도
+    const PROXIES = [
+      (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    ];
 
-      if(isSwipe && moveX < -80){
-        savedList.push({link,title});
-        saveState();
-        removeCard(card,'left');
+    async function fetchRssText(rssUrl){
+      let lastError = null;
+      for (const proxyFn of PROXIES) {
+        try {
+          const proxyUrl = proxyFn(rssUrl);
+          console.log('[뉴스포털] 시도:', proxyUrl);
+          const res = await fetch(proxyUrl);
+          if (!res.ok) {
+            console.warn('[뉴스포털] HTTP 오류:', res.status);
+            continue;
+          }
+          const text = await res.text();
+          if (text && text.includes('<item')) {
+            console.log('[뉴스포털] 성공! 길이:', text.length);
+            return text;
+          }
+          console.warn('[뉴스포털] 빈 응답 또는 item 없음');
+        } catch(e) {
+          console.warn('[뉴스포털] 프록시 실패:', e.message);
+          lastError = e;
+        }
       }
-      else if(isSwipe && moveX > 80){
-        removeCard(card,'right');
+      throw lastError || new Error('모든 프록시 실패');
+    }
+
+    function parseRss(xmlText){
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xmlText, 'text/xml');
+      const items = Array.from(doc.querySelectorAll('item')).slice(0, 30);
+      return items.map(item => ({
+        title: item.querySelector('title')?.textContent?.trim() || '제목 없음',
+        link: item.querySelector('link')?.textContent?.trim() || '',
+        pubDate: item.querySelector('pubDate')?.textContent?.trim() || ''
+      }));
+    }
+
+    function isKoreanTitle(title){
+      return /[가-힣]/.test(title || '');
+    }
+
+    function formatTime(dateStr){
+      try{
+        return new Date(dateStr).toLocaleString('ko-KR');
+      }catch{
+        return '';
       }
-      else{
-        // 👉 클릭은 기본 a태그 동작
+    }
+
+    function escapeHtml(str){
+      return String(str || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function saveRead(){
+      localStorage.setItem('portal_read_links', JSON.stringify(readLinks));
+    }
+
+    function clearRead(){
+      readLinks = [];
+      saveRead();
+      renderNews();
+    }
+
+    function openNews(link){
+      if (!readLinks.includes(link)) {
+        readLinks.push(link);
+        saveRead();
+      }
+      window.location.href = link;
+    }
+
+    function renderNews(){
+      const heroArea = document.getElementById('heroArea');
+      const newsList = document.getElementById('newsList');
+
+      const filtered = allNews.filter(item => !readLinks.includes(item.link));
+
+      if (!filtered.length){
+        heroArea.innerHTML = '';
+        newsList.innerHTML = `
+          <div class="empty">
+            지금 볼 수 있는 한국어 기사가 없어요.<br>
+            카테고리를 바꾸거나 읽은 기사 초기화를 눌러보세요.
+          </div>
+        `;
+        return;
       }
 
-      card.style.transform = '';
-      moveX = 0;
-    });
-  });
-}
+      const hero = filtered[0];
+      const rest = filtered.slice(1, 11);
 
-function removeCard(card, dir){
-  card.classList.add(dir==='right'?'remove-right':'remove-left');
-  setTimeout(()=> card.remove(),200);
-}
+      heroArea.innerHTML = `
+        <a href="${escapeHtml(hero.link)}" class="hero-card" onclick="markReadOnly('${escapeHtml(hero.link)}')">
+          <div class="hero-body">
+            <div class="hero-badge">오늘의 헤드라인</div>
+            <div class="hero-title">${escapeHtml(hero.title)}</div>
+            <div class="hero-meta">${formatTime(hero.pubDate)}</div>
+          </div>
+        </a>
+      `;
 
-/* 초기 실행 */
-loadNews();
+      newsList.innerHTML = rest.map((item, idx) => `
+        <div class="news-card" onclick="openNews('${escapeHtml(item.link)}')">
+          <div class="news-rank">${idx + 1}</div>
+          <div class="news-main">
+            <div class="news-title">
+              ${readLinks.includes(item.link) ? '<span class="read-mark">읽음</span>' : ''}
+              ${escapeHtml(item.title)}
+            </div>
+            <div class="news-meta">${formatTime(item.pubDate)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
 
-</script>
+    function markReadOnly(link){
+      if (!readLinks.includes(link)) {
+        readLinks.push(link);
+        saveRead();
+      }
+    }
 
+    async function loadNews(){
+      const heroArea = document.getElementById('heroArea');
+      const newsList = document.getElementById('newsList');
+
+      heroArea.innerHTML = `
+        <div class="hero-card">
+          <div class="hero-body">
+            <div class="hero-badge">불러오는 중</div>
+            <div class="hero-title">뉴스를 가져오고 있어요</div>
+            <div class="hero-meta">잠시만 기다려주세요</div>
+          </div>
+        </div>
+      `;
+      newsList.innerHTML = '';
+
+      try{
+        const rssUrl = buildRssUrl(currentKeyword);
+        console.log('[뉴스포털] RSS URL:', rssUrl);
+
+        const xmlText = await fetchRssText(rssUrl);
+        const items = parseRss(xmlText);
+        console.log('[뉴스포털] 파싱된 기사 수:', items.length);
+
+        allNews = items.filter(item => item.link && isKoreanTitle(item.title));
+
+        console.log('[뉴스포털] 한국어 필터 후:', allNews.length);
+
+        if (allNews.length === 0) {
+          heroArea.innerHTML = '';
+          newsList.innerHTML = `<div class="empty">한국어 기사를 찾지 못했어요.<br>다른 카테고리를 눌러보세요.</div>`;
+          return;
+        }
+
+        renderNews();
+      }catch(e){
+        console.error('[뉴스포털] 오류:', e);
+        heroArea.innerHTML = '';
+        newsList.innerHTML = `
+          <div class="empty">
+            네트워크 오류가 발생했어요.<br>
+            잠시 후 다시 시도해주세요.<br>
+            <small style="color:#9ca3af;">(${escapeHtml(e.message || '알 수 없는 오류')})</small>
+          </div>
+        `;
+      }
+    }
+
+    setTodayText();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
 </body>
 </html>
